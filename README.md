@@ -34,7 +34,21 @@
 
 ## 📦 Estrutura do Projeto
 
-src/ │ ├── components/ │ ├── Dashboard.jsx │ ├── NovaOS.jsx │ ├── Header.jsx │ └── OSCard.jsx │ ├── services/ │ └── api.js │ ├── App.jsx ├── index.js └── styles.css
+src/
+│
+├── components/
+│   ├── Dashboard.jsx
+│   ├── NovaOS.jsx
+│   ├── Header.jsx
+│   └── OSCard.jsx
+│
+├── services/
+│   └── api.js
+│
+├── App.jsx
+├── index.js
+└── styles.css
+
 
 ---
 
@@ -50,12 +64,3 @@ src/ │ ├── components/ │ ├── Dashboard.jsx │ ├── NovaOS.
 ## 🚧 Status: Em desenvolvimento
 
 ---
-
-## ✅ Como rodar o projeto
-
-### 1. Crie o projeto com Vite:
-
-```bash
-npm create vite@latest sistema-freela --template react
-cd sistema-freela
-npm install
