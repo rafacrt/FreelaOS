@@ -27,8 +27,7 @@ const Dashboard = () => {
   const navigate = useNavigate()
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('todos')
-  const [filtroParceiro, setFiltroParceiro] = useState('')
-  const [filtroCliente, setFiltroCliente] = useState('')
+  const [ordenarPor, setOrdenarPor] = useState('recente')
   const [ordens, setOrdens] = useState<OrdemDeServico[]>([])
 
   useEffect(() => {
@@ -39,7 +38,13 @@ const Dashboard = () => {
     const res = await api.get('/os')
     const dados = res.data.map((os: any) => ({
       ...os,
-      sessoes: JSON.parse(os.sessoes || '[]'),
+      sessoes: (() => {
+        try {
+          return JSON.parse(os.sessoes || '[]')
+        } catch {
+          return []
+        }
+      })(),
     }))
     setOrdens(dados)
   }
@@ -70,20 +75,12 @@ const Dashboard = () => {
     aguardandoParceiro: ordens.filter(os => os.aguardandoParceiro).length,
   }
 
-  const parceirosUnicos = [...new Set(ordens.map(o => o.parceiro))].sort()
-  const clientesUnicos = [...new Set(ordens.map(o => o.cliente))].sort()
-
   const ordensFiltradas = ordens
     .filter((os) => {
       if (filtroStatus === 'finalizado') return os.finalizado
       if (filtroStatus === 'trabalhando') return os.trabalhando
       if (filtroStatus === 'aguardandoCliente') return os.aguardandoCliente
       if (filtroStatus === 'aguardandoParceiro') return os.aguardandoParceiro
-      return true // 'todos'
-    })
-    .filter((os) => {
-      if (filtroParceiro && os.parceiro !== filtroParceiro) return false
-      if (filtroCliente && os.cliente !== filtroCliente) return false
       return true
     })
     .filter(os =>
@@ -92,6 +89,15 @@ const Dashboard = () => {
       os.projeto.toLowerCase().includes(busca.toLowerCase()) ||
       os.tarefa.toLowerCase().includes(busca.toLowerCase())
     )
+
+  // Ordenação
+  ordensFiltradas.sort((a, b) => {
+    if (ordenarPor === 'recente') return b.numero.localeCompare(a.numero)
+    if (ordenarPor === 'numero') return a.numero.localeCompare(b.numero)
+    if (ordenarPor === 'cliente') return a.cliente.localeCompare(b.cliente)
+    if (ordenarPor === 'projeto') return a.projeto.localeCompare(b.projeto)
+    return 0
+  })
 
   const getStatusBadge = (os: OrdemDeServico) => {
     if (os.finalizado) return <Badge bg="success">Finalizado</Badge>
@@ -110,43 +116,60 @@ const Dashboard = () => {
       <h2 className="mb-3">📋 Painel de Ordens de Serviço</h2>
 
       <div className="mb-3">
-        <strong>Resumo:</strong> &nbsp;
-        ✅ Finalizados: {totais.finalizados} &nbsp;|&nbsp;
-        🕐 Trabalhando: {totais.trabalhando} &nbsp;|&nbsp;
-        📩 Aguardando Cliente: {totais.aguardandoCliente} &nbsp;|&nbsp;
-        👥 Aguardando Parceiro: {totais.aguardandoParceiro}
+        <strong>Resumo (clique para filtrar):</strong> &nbsp;
+
+        <span
+          style={{ cursor: 'pointer', fontWeight: filtroStatus === 'finalizado' ? 'bold' : 'normal' }}
+          onClick={() => setFiltroStatus('finalizado')}
+        >
+          ✅ Finalizados: {totais.finalizados}
+        </span> &nbsp;|&nbsp;
+
+        <span
+          style={{ cursor: 'pointer', fontWeight: filtroStatus === 'trabalhando' ? 'bold' : 'normal' }}
+          onClick={() => setFiltroStatus('trabalhando')}
+        >
+          🕐 Trabalhando: {totais.trabalhando}
+        </span> &nbsp;|&nbsp;
+
+        <span
+          style={{ cursor: 'pointer', fontWeight: filtroStatus === 'aguardandoCliente' ? 'bold' : 'normal' }}
+          onClick={() => setFiltroStatus('aguardandoCliente')}
+        >
+          📩 Aguardando Cliente: {totais.aguardandoCliente}
+        </span> &nbsp;|&nbsp;
+
+        <span
+          style={{ cursor: 'pointer', fontWeight: filtroStatus === 'aguardandoParceiro' ? 'bold' : 'normal' }}
+          onClick={() => setFiltroStatus('aguardandoParceiro')}
+        >
+          👥 Aguardando Parceiro: {totais.aguardandoParceiro}
+        </span> &nbsp;
+
+        <span
+          style={{ cursor: 'pointer', textDecoration: 'underline', marginLeft: 10 }}
+          onClick={() => setFiltroStatus('todos')}
+        >
+          🔄 Ver todos
+        </span>
       </div>
 
       <Row className="mb-4 g-2">
-        <Col md={3}>
-          <Form.Select value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}>
-            <option value="todos">🔁 Todos os status</option>
-            <option value="finalizado">✅ Finalizado</option>
-            <option value="trabalhando">🕐 Trabalhando</option>
-            <option value="aguardandoCliente">📩 Aguardando Cliente</option>
-            <option value="aguardandoParceiro">👥 Aguardando Parceiro</option>
+        <Col md={4}>
+          <Form.Select
+            value={ordenarPor}
+            onChange={(e) => setOrdenarPor(e.target.value)}
+          >
+            <option value="recente">📅 Mais recente</option>
+            <option value="numero">🔢 Número da OS</option>
+            <option value="cliente">🏢 Nome do Cliente</option>
+            <option value="projeto">📁 Nome do Projeto</option>
           </Form.Select>
         </Col>
-        <Col md={3}>
-          <Form.Select value={filtroParceiro} onChange={(e) => setFiltroParceiro(e.target.value)}>
-            <option value="">👤 Todos os parceiros</option>
-            {parceirosUnicos.map((p, i) => (
-              <option key={i} value={p}>{p}</option>
-            ))}
-          </Form.Select>
-        </Col>
-        <Col md={3}>
-          <Form.Select value={filtroCliente} onChange={(e) => setFiltroCliente(e.target.value)}>
-            <option value="">🏢 Todos os clientes</option>
-            {clientesUnicos.map((c, i) => (
-              <option key={i} value={c}>{c}</option>
-            ))}
-          </Form.Select>
-        </Col>
-        <Col md={3}>
+        <Col md={8}>
           <Form.Control
             type="text"
-            placeholder="🔍 Buscar OS, projeto ou tarefa..."
+            placeholder="🔍 Buscar OS, cliente, projeto ou tarefa..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
