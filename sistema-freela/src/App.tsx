@@ -5,6 +5,8 @@ import DetalhesOS from './components/DetalhesOS'
 import EditarOS from './components/EditarOS'
 import Header from './components/Header'
 import PainelEntidades from './components/PainelEntidades'
+import PainelSessoes from './components/PainelSessoes'
+import CalendarioSessoes from './components/CalendarioSessoes'
 
 const App = () => {
   return (
@@ -17,6 +19,8 @@ const App = () => {
           <Route path="/os/:numero" element={<DetalhesOS />} />
           <Route path="/os/editar/:numero" element={<EditarOS />} />
           <Route path="/admin/entidades" element={<PainelEntidades />} />
+          <Route path="/painel/sessoes" element={<PainelSessoes />} />
+          <Route path="/painel/calendario" element={<CalendarioSessoes />} />
         </Routes>
       </div>
     </>
