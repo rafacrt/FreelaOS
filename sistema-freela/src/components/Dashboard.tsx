@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Card, Row, Col, Badge, Form } from 'react-bootstrap'
+import { Card, Row, Col, Badge, Form, Button } from 'react-bootstrap'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 
@@ -21,6 +21,8 @@ interface OrdemDeServico {
   aguardandoParceiro: boolean
   finalizado: boolean
   trabalhando: boolean
+  urgente: boolean
+  aberto_em?: string
 }
 
 const Dashboard = () => {
@@ -29,6 +31,7 @@ const Dashboard = () => {
   const [filtroStatus, setFiltroStatus] = useState('todos')
   const [ordenarPor, setOrdenarPor] = useState('recente')
   const [ordens, setOrdens] = useState<OrdemDeServico[]>([])
+  const alertaAudio = new Audio('/som-urgente.mp3')
 
   useEffect(() => {
     buscarOS()
@@ -36,7 +39,7 @@ const Dashboard = () => {
 
   const buscarOS = async () => {
     const res = await api.get('/os')
-    const dados = res.data.map((os: any) => ({
+    let dados = res.data.map((os: any) => ({
       ...os,
       sessoes: (() => {
         try {
@@ -46,6 +49,11 @@ const Dashboard = () => {
         }
       })(),
     }))
+
+    if (filtroStatus === 'todos') {
+      dados = dados.filter((os: OrdemDeServico) => !os.finalizado)
+    }
+
     setOrdens(dados)
   }
 
@@ -57,6 +65,12 @@ const Dashboard = () => {
       finalizado: false,
       trabalhando: false,
       [novoStatus]: true
+    }
+
+    if (novoStatus === 'finalizado') {
+      const confirmar = window.confirm('Deseja mudar para finalizado?')
+      if (!confirmar) return
+      (atualizado as any).finalizado_em = new Date()
     }
 
     try {
@@ -77,11 +91,18 @@ const Dashboard = () => {
 
   const ordensFiltradas = ordens
     .filter((os) => {
-      if (filtroStatus === 'finalizado') return os.finalizado
-      if (filtroStatus === 'trabalhando') return os.trabalhando
-      if (filtroStatus === 'aguardandoCliente') return os.aguardandoCliente
-      if (filtroStatus === 'aguardandoParceiro') return os.aguardandoParceiro
-      return true
+      const isFinalizado = Boolean(os.finalizado)
+      const isTrabalhando = Boolean(os.trabalhando)
+      const isAguardandoCliente = Boolean(os.aguardandoCliente)
+      const isAguardandoParceiro = Boolean(os.aguardandoParceiro)
+
+      if (filtroStatus === 'finalizado') return isFinalizado
+      if (filtroStatus === 'trabalhando') return isTrabalhando
+      if (filtroStatus === 'aguardandoCliente') return isAguardandoCliente
+      if (filtroStatus === 'aguardandoParceiro') return isAguardandoParceiro
+      if (filtroStatus === 'todos') return true
+
+      return !isFinalizado
     })
     .filter(os =>
       os.numero.toLowerCase().includes(busca.toLowerCase()) ||
@@ -90,8 +111,10 @@ const Dashboard = () => {
       os.tarefa.toLowerCase().includes(busca.toLowerCase())
     )
 
-  // Ordenação
   ordensFiltradas.sort((a, b) => {
+    if (a.urgente && !b.urgente) return -1
+    if (!a.urgente && b.urgente) return 1
+
     if (ordenarPor === 'recente') return b.numero.localeCompare(a.numero)
     if (ordenarPor === 'numero') return a.numero.localeCompare(b.numero)
     if (ordenarPor === 'cliente') return a.cliente.localeCompare(b.cliente)
@@ -113,53 +136,40 @@ const Dashboard = () => {
 
   return (
     <div>
-      <h2 className="mb-3">📋 Painel de Ordens de Serviço</h2>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h2 className="mb-0">📋 Painel de Ordens de Serviço</h2>
+        <Button variant="outline-primary" onClick={() => navigate('/calendario')}>
+          📅 Ver Calendário
+        </Button>
+      </div>
 
       <div className="mb-3">
         <strong>Resumo (clique para filtrar):</strong> &nbsp;
 
-        <span
-          style={{ cursor: 'pointer', fontWeight: filtroStatus === 'finalizado' ? 'bold' : 'normal' }}
-          onClick={() => setFiltroStatus('finalizado')}
-        >
+        <span style={{ cursor: 'pointer', fontWeight: filtroStatus === 'finalizado' ? 'bold' : 'normal' }} onClick={() => { setFiltroStatus('finalizado'); buscarOS() }}>
           ✅ Finalizados: {totais.finalizados}
         </span> &nbsp;|&nbsp;
 
-        <span
-          style={{ cursor: 'pointer', fontWeight: filtroStatus === 'trabalhando' ? 'bold' : 'normal' }}
-          onClick={() => setFiltroStatus('trabalhando')}
-        >
+        <span style={{ cursor: 'pointer', fontWeight: filtroStatus === 'trabalhando' ? 'bold' : 'normal' }} onClick={() => { setFiltroStatus('trabalhando'); buscarOS() }}>
           🕐 Trabalhando: {totais.trabalhando}
         </span> &nbsp;|&nbsp;
 
-        <span
-          style={{ cursor: 'pointer', fontWeight: filtroStatus === 'aguardandoCliente' ? 'bold' : 'normal' }}
-          onClick={() => setFiltroStatus('aguardandoCliente')}
-        >
+        <span style={{ cursor: 'pointer', fontWeight: filtroStatus === 'aguardandoCliente' ? 'bold' : 'normal' }} onClick={() => { setFiltroStatus('aguardandoCliente'); buscarOS() }}>
           📩 Aguardando Cliente: {totais.aguardandoCliente}
         </span> &nbsp;|&nbsp;
 
-        <span
-          style={{ cursor: 'pointer', fontWeight: filtroStatus === 'aguardandoParceiro' ? 'bold' : 'normal' }}
-          onClick={() => setFiltroStatus('aguardandoParceiro')}
-        >
+        <span style={{ cursor: 'pointer', fontWeight: filtroStatus === 'aguardandoParceiro' ? 'bold' : 'normal' }} onClick={() => { setFiltroStatus('aguardandoParceiro'); buscarOS() }}>
           👥 Aguardando Parceiro: {totais.aguardandoParceiro}
         </span> &nbsp;
 
-        <span
-          style={{ cursor: 'pointer', textDecoration: 'underline', marginLeft: 10 }}
-          onClick={() => setFiltroStatus('todos')}
-        >
+        <span style={{ cursor: 'pointer', textDecoration: 'underline', marginLeft: 10 }} onClick={() => { setFiltroStatus('todos'); buscarOS() }}>
           🔄 Ver todos
         </span>
       </div>
 
       <Row className="mb-4 g-2">
         <Col md={4}>
-          <Form.Select
-            value={ordenarPor}
-            onChange={(e) => setOrdenarPor(e.target.value)}
-          >
+          <Form.Select value={ordenarPor} onChange={(e) => setOrdenarPor(e.target.value)}>
             <option value="recente">📅 Mais recente</option>
             <option value="numero">🔢 Número da OS</option>
             <option value="cliente">🏢 Nome do Cliente</option>
@@ -181,25 +191,50 @@ const Dashboard = () => {
           <Col key={index}>
             <Card
               border="light"
-              className="shadow-sm h-100"
+              className="shadow-sm h-100 position-relative"
               style={{
                 cursor: 'pointer',
-                backgroundColor:
-                  os.finalizado ? '#d4edda' :
-                  os.trabalhando ? '#fff3cd' :
-                  os.aguardandoParceiro ? '#d0dfff' :
-                  os.aguardandoCliente ? '#cce5ff' :
-                  '#f8f9fa',
+                backgroundColor: os.urgente ? '#ff4d4d' :
+                                 os.finalizado ? '#d4edda' :
+                                 os.trabalhando ? '#fff3cd' :
+                                 os.aguardandoParceiro ? '#d0dfff' :
+                                 os.aguardandoCliente ? '#cce5ff' :
+                                 '#f8f9fa',
+                color: os.urgente ? '#fff' : undefined
               }}
               onClick={() => abrirDetalhesOS(os)}
             >
+              {os.urgente && (
+                <div style={{
+                  position: 'absolute',
+                  top: '8px',
+                  right: '12px',
+                  backgroundColor: '#b30000',
+                  color: 'white',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '0.8em',
+                  fontWeight: 'bold'
+                }}>
+                  🔥 URGENTE
+                </div>
+              )}
+
               <Card.Body>
                 <Card.Title>#{os.numero} • {os.projeto}</Card.Title>
-                <Card.Subtitle className="mb-2 text-muted">{os.cliente} - {os.tarefa}</Card.Subtitle>
-                <Card.Text>
+                <Card.Subtitle className="mb-2 text-muted" style={{ color: os.urgente ? '#fff' : undefined }}>
+                  {os.cliente} - {os.tarefa}
+                </Card.Subtitle>
+                <Card.Text style={{ color: os.urgente ? '#fff' : undefined }}>
                   <strong>Parceiro:</strong> {os.parceiro} <br />
                   <strong>Obs:</strong> {os.observacoes || 'Nenhuma'}
                 </Card.Text>
+
+                {os.aberto_em && (
+                  <div className="text-muted mb-2" style={{ fontSize: '0.9em', color: os.urgente ? '#fff' : undefined }}>
+                    📅 Aberto em: {new Date(os.aberto_em).toLocaleString('pt-BR')}
+                  </div>
+                )}
 
                 {getStatusBadge(os)}
 
@@ -221,6 +256,31 @@ const Dashboard = () => {
                   <option value="aguardandoCliente">📩 Aguardando Cliente</option>
                   <option value="aguardandoParceiro">👥 Aguardando Parceiro</option>
                 </Form.Select>
+
+                <Button
+                  size="sm"
+                  variant={os.urgente ? 'light' : 'outline-danger'}
+                  className="mt-2"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const novoValor = os.urgente ? 0 : 1
+                    api.put(`/os/${os.numero}`, {
+                      ...os,
+                      urgente: novoValor
+                    }).then(() => {
+                      setOrdens(ordens.map(o =>
+                        o.numero === os.numero ? { ...o, urgente: !!novoValor } : o
+                      ))
+                      if (novoValor === 1) {
+                        alertaAudio.play().catch(() => {})
+                      }                      
+                    }).catch(() => {
+                      alert('❌ Erro ao atualizar urgência')
+                    })
+                  }}
+                >
+                  {os.urgente ? '❌ Urgente' : '🚨 Marcar como Urgente'}
+                </Button>
               </Card.Body>
             </Card>
           </Col>

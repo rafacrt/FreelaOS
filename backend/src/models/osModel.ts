@@ -21,6 +21,7 @@ export interface OrdemServico {
   aguardandoParceiro: boolean
   finalizado: boolean
   trabalhando: boolean
+  programadaPara?: string
 }
 
 export const getAllOS = async () => {
@@ -45,12 +46,12 @@ export const createOS = async (os: OrdemServico) => {
     aguardandoCliente,
     aguardandoParceiro,
     finalizado,
-    trabalhando
+    trabalhando,
+    programadaPara
   } = os
 
   const sessoesJson = JSON.stringify(sessoes ?? [])
 
-  // 🔁 Verificar e/ou criar entidades relacionadas
   const parceiroId = await verificarOuCriarParceiro(parceiro)
   const clienteId = await verificarOuCriarCliente(cliente, parceiroId)
   const projetoId = await verificarOuCriarProjeto(projeto, clienteId, parceiroId)
@@ -59,8 +60,8 @@ export const createOS = async (os: OrdemServico) => {
     `INSERT INTO ordens_servico 
      (numero, cliente, parceiro, projeto, tarefa, observacoes, sessoes, 
       aguardandoCliente, aguardandoParceiro, finalizado, trabalhando, 
-      parceiro_id, cliente_id, projeto_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      parceiro_id, cliente_id, projeto_id, programadaPara)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       numero,
       cliente,
@@ -75,7 +76,8 @@ export const createOS = async (os: OrdemServico) => {
       trabalhando,
       parceiroId,
       clienteId,
-      projetoId
+      projetoId,
+      programadaPara || null
     ]
   )
 
@@ -90,11 +92,12 @@ export const createOS = async (os: OrdemServico) => {
     aguardandoCliente,
     aguardandoParceiro,
     finalizado,
-    trabalhando
+    trabalhando,
+    programadaPara
   }
 }
 
-export const updateOS = async (numero: string, os: OrdemServico) => {
+export const updateOS = async (numero: string, os: any) => {
   const {
     cliente,
     parceiro,
@@ -105,15 +108,20 @@ export const updateOS = async (numero: string, os: OrdemServico) => {
     aguardandoCliente,
     aguardandoParceiro,
     finalizado,
-    trabalhando
+    trabalhando,
+    aberto_em,
+    finalizado_em,
+    urgente,
+    programadaPara
   } = os
 
-  const sessoesJson = JSON.stringify(sessoes)
+  const sessoesJson = JSON.stringify(sessoes ?? [])
 
   const [result] = await db.query(
     `UPDATE ordens_servico SET 
       cliente = ?, parceiro = ?, projeto = ?, tarefa = ?, observacoes = ?, sessoes = ?, 
-      aguardandoCliente = ?, aguardandoParceiro = ?, finalizado = ?, trabalhando = ?
+      aguardandoCliente = ?, aguardandoParceiro = ?, finalizado = ?, trabalhando = ?,
+      aberto_em = ?, finalizado_em = ?, urgente = ?, programadaPara = ?
      WHERE numero = ?`,
     [
       cliente,
@@ -126,6 +134,10 @@ export const updateOS = async (numero: string, os: OrdemServico) => {
       aguardandoParceiro,
       finalizado,
       trabalhando,
+      aberto_em || null,
+      finalizado_em || null,
+      urgente || 0,
+      programadaPara || null,
       numero
     ]
   )

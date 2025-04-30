@@ -4,6 +4,8 @@ import dotenv from 'dotenv'
 import osRoutes from './routes/osRoutes'
 import entidadesRoutes from './routes/entidadesRoutes';
 import googleAuthRoutes from './routes/googleAuth'
+import usuarioRoutes from './routes/usuarioRoutes'
+
 
 
 dotenv.config()
@@ -16,6 +18,7 @@ app.use(express.json())
 app.use('/os', osRoutes);
 app.use('/entidades', entidadesRoutes);
 app.use('/auth/google', googleAuthRoutes);
+app.use('/usuarios', usuarioRoutes)
 app.get('/test-db', (_, res) => {
   res.json({ ok: true })
 })

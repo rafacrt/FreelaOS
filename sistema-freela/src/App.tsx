@@ -7,6 +7,7 @@ import Header from './components/Header'
 import PainelEntidades from './components/PainelEntidades'
 import PainelSessoes from './components/PainelSessoes'
 import CalendarioSessoes from './components/CalendarioSessoes'
+import Calendario from './components/Calendario'
 
 const App = () => {
   return (
@@ -21,6 +22,7 @@ const App = () => {
           <Route path="/admin/entidades" element={<PainelEntidades />} />
           <Route path="/painel/sessoes" element={<PainelSessoes />} />
           <Route path="/painel/calendario" element={<CalendarioSessoes />} />
+          <Route path="/calendario" element={<Calendario />} />
         </Routes>
       </div>
     </>
