@@ -79,3 +79,14 @@ body.dark-mode .card.urgente .btn-primary {
   transform: scale(1.02);
   opacity: 0.95;
 }
+
+.card-urgente {
+  animation: pulseUrgente 1.5s infinite;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+}
+
+@keyframes pulseUrgente {
+  0% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
+  50% { box-shadow: 0 0 20px rgba(255, 0, 0, 1); }
+  100% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
+}

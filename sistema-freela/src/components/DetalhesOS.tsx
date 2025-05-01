@@ -98,17 +98,7 @@ const DetalhesOS = () => {
       <h2 className="mb-4">
         {urgente && <span className="me-2">🔥</span>} Detalhes da OS <strong>#{os.numero}</strong>
       </h2>
-      <div className="mb-3">
-        <Button
-          variant="outline-dark"
-          size="sm"
-          onClick={() => {
-            document.body.classList.toggle('dark-mode')
-          }}
-        >
-          🌗 Alternar modo escuro
-        </Button>
-      </div>
+      
 
 
       <Card className={`mb-4 shadow-sm border-0 ${urgente ? 'urgente' : ''}`}>

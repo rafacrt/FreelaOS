@@ -6,8 +6,6 @@ import entidadesRoutes from './routes/entidadesRoutes';
 import googleAuthRoutes from './routes/googleAuth'
 import usuarioRoutes from './routes/usuarioRoutes'
 
-
-
 dotenv.config()
 
 const app = express()

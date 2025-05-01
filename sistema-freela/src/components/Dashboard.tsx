@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { Card, Row, Col, Badge, Form, Button } from 'react-bootstrap'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
+import { useAuth } from '../context/AuthContext'
+import { ToastContainer, toast } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 
 interface SessaoTrabalho {
   data: string
@@ -27,10 +30,12 @@ interface OrdemDeServico {
 
 const Dashboard = () => {
   const navigate = useNavigate()
+  const { usuario } = useAuth()
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('todos')
   const [ordenarPor, setOrdenarPor] = useState('recente')
   const [ordens, setOrdens] = useState<OrdemDeServico[]>([])
+  const [atualizandoUrgencia, setAtualizandoUrgencia] = useState<string | null>(null)
   const alertaAudio = new Audio('/som-urgente.mp3')
 
   useEffect(() => {
@@ -38,23 +43,34 @@ const Dashboard = () => {
   }, [])
 
   const buscarOS = async () => {
-    const res = await api.get('/os')
-    let dados = res.data.map((os: any) => ({
-      ...os,
-      sessoes: (() => {
-        try {
-          return JSON.parse(os.sessoes || '[]')
-        } catch {
-          return []
-        }
-      })(),
-    }))
+    try {
+      const res = await api.get('/os')
+      let dados = res.data.map((os: any) => ({
+        ...os,
+        // Normalizar valores booleanos
+        urgente: Boolean(os.urgente),
+        finalizado: Boolean(os.finalizado),
+        trabalhando: Boolean(os.trabalhando),
+        aguardandoCliente: Boolean(os.aguardandoCliente),
+        aguardandoParceiro: Boolean(os.aguardandoParceiro),
+        sessoes: (() => {
+          try {
+            return JSON.parse(os.sessoes || '[]')
+          } catch {
+            return []
+          }
+        })(),
+      }))
 
-    if (filtroStatus === 'todos') {
-      dados = dados.filter((os: OrdemDeServico) => !os.finalizado)
+      if (filtroStatus === 'todos') {
+        dados = dados.filter((os: OrdemDeServico) => !os.finalizado)
+      }
+
+      setOrdens(dados)
+    } catch (err) {
+      console.error('Erro ao buscar ordens de serviço:', err)
+      alert('Erro ao carregar ordens de serviço')
     }
-
-    setOrdens(dados)
   }
 
   const atualizarStatus = async (os: OrdemDeServico, novoStatus: keyof OrdemDeServico) => {
@@ -69,18 +85,60 @@ const Dashboard = () => {
 
     if (novoStatus === 'finalizado') {
       const confirmar = window.confirm('Deseja mudar para finalizado?')
-      if (!confirmar) return
+      if (!confirmar) {
+        return
+      }
       (atualizado as any).finalizado_em = new Date()
     }
 
     try {
       await api.put(`/os/${os.numero}`, atualizado)
       setOrdens(ordens.map(o => o.numero === os.numero ? atualizado : o))
+      toast.success('✅ Status atualizado com sucesso!')
     } catch (err) {
-      alert('❌ Erro ao atualizar status')
+      toast.error('❌ Erro ao atualizar status')
       console.error(err)
     }
+    
   }
+
+  const atualizarUrgencia = async (numero: string) => {
+    const osNoState = ordens.find(o => o.numero === numero)
+    if (!osNoState) return
+  
+    const novoValor = !osNoState.urgente
+    setAtualizandoUrgencia(numero)
+  
+    setOrdens(prev =>
+      prev.map(o =>
+        o.numero === numero
+          ? { ...o, urgente: novoValor }
+          : o
+      )
+    )
+  
+    if (novoValor) alertaAudio.play().catch(() => { })
+  
+    try {
+      await api.put(`/os/${numero}`, { ...osNoState, urgente: novoValor })
+      toast.success(`🚨 Urgência ${novoValor ? 'ativada' : 'removida'} com sucesso!`)
+    } catch (err) {
+      console.error(err)
+      toast.error('❌ Erro ao atualizar urgência')
+      setOrdens(prev =>
+        prev.map(o =>
+          o.numero === numero
+            ? { ...o, urgente: osNoState.urgente }
+            : o
+        )
+      )
+    } finally {
+      setAtualizandoUrgencia(null)
+    }
+  }
+  
+
+
 
   const totais = {
     finalizados: ordens.filter(os => os.finalizado).length,
@@ -91,18 +149,11 @@ const Dashboard = () => {
 
   const ordensFiltradas = ordens
     .filter((os) => {
-      const isFinalizado = Boolean(os.finalizado)
-      const isTrabalhando = Boolean(os.trabalhando)
-      const isAguardandoCliente = Boolean(os.aguardandoCliente)
-      const isAguardandoParceiro = Boolean(os.aguardandoParceiro)
-
-      if (filtroStatus === 'finalizado') return isFinalizado
-      if (filtroStatus === 'trabalhando') return isTrabalhando
-      if (filtroStatus === 'aguardandoCliente') return isAguardandoCliente
-      if (filtroStatus === 'aguardandoParceiro') return isAguardandoParceiro
-      if (filtroStatus === 'todos') return true
-
-      return !isFinalizado
+      if (filtroStatus === 'finalizado') return os.finalizado
+      if (filtroStatus === 'trabalhando') return os.trabalhando
+      if (filtroStatus === 'aguardandoCliente') return os.aguardandoCliente
+      if (filtroStatus === 'aguardandoParceiro') return os.aguardandoParceiro
+      return true
     })
     .filter(os =>
       os.numero.toLowerCase().includes(busca.toLowerCase()) ||
@@ -110,17 +161,14 @@ const Dashboard = () => {
       os.projeto.toLowerCase().includes(busca.toLowerCase()) ||
       os.tarefa.toLowerCase().includes(busca.toLowerCase())
     )
+    .sort((a, b) => {
+      if (ordenarPor === 'recente') return b.numero.localeCompare(a.numero)
+      if (ordenarPor === 'numero') return a.numero.localeCompare(b.numero)
+      if (ordenarPor === 'cliente') return a.cliente.localeCompare(b.cliente)
+      if (ordenarPor === 'projeto') return a.projeto.localeCompare(b.projeto)
+      return 0
+    })
 
-  ordensFiltradas.sort((a, b) => {
-    if (a.urgente && !b.urgente) return -1
-    if (!a.urgente && b.urgente) return 1
-
-    if (ordenarPor === 'recente') return b.numero.localeCompare(a.numero)
-    if (ordenarPor === 'numero') return a.numero.localeCompare(b.numero)
-    if (ordenarPor === 'cliente') return a.cliente.localeCompare(b.cliente)
-    if (ordenarPor === 'projeto') return a.projeto.localeCompare(b.projeto)
-    return 0
-  })
 
   const getStatusBadge = (os: OrdemDeServico) => {
     if (os.finalizado) return <Badge bg="success">Finalizado</Badge>
@@ -136,33 +184,36 @@ const Dashboard = () => {
 
   return (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-3">
+      <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h2 className="mb-0">📋 Painel de Ordens de Serviço</h2>
-        <Button variant="outline-primary" onClick={() => navigate('/calendario')}>
-          📅 Ver Calendário
-        </Button>
+        <div className="d-flex flex-wrap gap-2">
+          <Button variant="success" onClick={() => navigate('/nova-os')}>➕ Nova OS</Button>
+          <Button variant="outline-primary" onClick={() => navigate('/calendario')}>📅 Calendário</Button>
+          <Button variant="outline-secondary" onClick={() => navigate('/admin/entidades')}>🧩 Entidades</Button>
+          {usuario?.email === 'admin@admin.com' && (
+            <Button variant="dark" onClick={() => navigate('/admin/usuarios')}>👤 Cadastrar Usuário</Button>
+          )}
+        </div>
       </div>
 
       <div className="mb-3">
-        <strong>Resumo (clique para filtrar):</strong> &nbsp;
-
-        <span style={{ cursor: 'pointer', fontWeight: filtroStatus === 'finalizado' ? 'bold' : 'normal' }} onClick={() => { setFiltroStatus('finalizado'); buscarOS() }}>
-          ✅ Finalizados: {totais.finalizados}
-        </span> &nbsp;|&nbsp;
-
-        <span style={{ cursor: 'pointer', fontWeight: filtroStatus === 'trabalhando' ? 'bold' : 'normal' }} onClick={() => { setFiltroStatus('trabalhando'); buscarOS() }}>
-          🕐 Trabalhando: {totais.trabalhando}
-        </span> &nbsp;|&nbsp;
-
-        <span style={{ cursor: 'pointer', fontWeight: filtroStatus === 'aguardandoCliente' ? 'bold' : 'normal' }} onClick={() => { setFiltroStatus('aguardandoCliente'); buscarOS() }}>
-          📩 Aguardando Cliente: {totais.aguardandoCliente}
-        </span> &nbsp;|&nbsp;
-
-        <span style={{ cursor: 'pointer', fontWeight: filtroStatus === 'aguardandoParceiro' ? 'bold' : 'normal' }} onClick={() => { setFiltroStatus('aguardandoParceiro'); buscarOS() }}>
-          👥 Aguardando Parceiro: {totais.aguardandoParceiro}
-        </span> &nbsp;
-
-        <span style={{ cursor: 'pointer', textDecoration: 'underline', marginLeft: 10 }} onClick={() => { setFiltroStatus('todos'); buscarOS() }}>
+        <strong>Filtrar por status:</strong> &nbsp;
+        {['finalizado', 'trabalhando', 'aguardandoCliente', 'aguardandoParceiro'].map((status) => (
+          <span
+            key={status}
+            style={{ cursor: 'pointer', fontWeight: filtroStatus === status ? 'bold' : 'normal', marginRight: 10 }}
+            onClick={() => { setFiltroStatus(status); buscarOS() }}
+          >
+            {status === 'finalizado' && '✅ Finalizados'}
+            {status === 'trabalhando' && '🕐 Trabalhando'}
+            {status === 'aguardandoCliente' && '📩 Cliente'}
+            {status === 'aguardandoParceiro' && '👥 Parceiro'}
+          </span>
+        ))}
+        <span
+          style={{ cursor: 'pointer', textDecoration: 'underline' }}
+          onClick={() => { setFiltroStatus('todos'); buscarOS() }}
+        >
           🔄 Ver todos
         </span>
       </div>
@@ -188,22 +239,23 @@ const Dashboard = () => {
 
       <Row xs={1} md={2} lg={3} className="g-4">
         {ordensFiltradas.map((os, index) => (
-          <Col key={index}>
+          <Col key={os.numero}>
             <Card
-              border="light"
-              className="shadow-sm h-100 position-relative"
+              key={os.numero}
+              className={`shadow-sm h-100 position-relative ${os.urgente ? 'card-urgente' : ''}`}
               style={{
                 cursor: 'pointer',
-                backgroundColor: os.urgente ? '#ff4d4d' :
-                                 os.finalizado ? '#d4edda' :
-                                 os.trabalhando ? '#fff3cd' :
-                                 os.aguardandoParceiro ? '#d0dfff' :
-                                 os.aguardandoCliente ? '#cce5ff' :
-                                 '#f8f9fa',
-                color: os.urgente ? '#fff' : undefined
+    backgroundColor: os.urgente ? '#ff4d4d' :
+      os.finalizado ? '#d4edda' :
+      os.trabalhando ? '#fff3cd' :
+      os.aguardandoParceiro ? '#d0dfff' :
+      os.aguardandoCliente ? '#cce5ff' :
+      '#f8f9fa',
+    color: os.urgente ? '#fff' : undefined
               }}
               onClick={() => abrirDetalhesOS(os)}
             >
+
               {os.urgente && (
                 <div style={{
                   position: 'absolute',
@@ -219,23 +271,25 @@ const Dashboard = () => {
                   🔥 URGENTE
                 </div>
               )}
-
               <Card.Body>
                 <Card.Title>#{os.numero} • {os.projeto}</Card.Title>
-                <Card.Subtitle className="mb-2 text-muted" style={{ color: os.urgente ? '#fff' : undefined }}>
+                <Card.Subtitle className="mb-2" style={{
+                  color: os.urgente ? '#fff' : 'var(--bs-secondary-color)'
+                }}>
                   {os.cliente} - {os.tarefa}
                 </Card.Subtitle>
                 <Card.Text style={{ color: os.urgente ? '#fff' : undefined }}>
                   <strong>Parceiro:</strong> {os.parceiro} <br />
                   <strong>Obs:</strong> {os.observacoes || 'Nenhuma'}
                 </Card.Text>
-
                 {os.aberto_em && (
-                  <div className="text-muted mb-2" style={{ fontSize: '0.9em', color: os.urgente ? '#fff' : undefined }}>
+                  <div style={{
+                    fontSize: '0.9em',
+                    color: os.urgente ? '#fff' : 'var(--bs-secondary-color)'
+                  }} className="mb-2">
                     📅 Aberto em: {new Date(os.aberto_em).toLocaleString('pt-BR')}
                   </div>
                 )}
-
                 {getStatusBadge(os)}
 
                 <Form.Select
@@ -243,9 +297,9 @@ const Dashboard = () => {
                   className="mt-2"
                   value={
                     os.finalizado ? 'finalizado' :
-                    os.trabalhando ? 'trabalhando' :
-                    os.aguardandoParceiro ? 'aguardandoParceiro' :
-                    os.aguardandoCliente ? 'aguardandoCliente' : ''
+                      os.trabalhando ? 'trabalhando' :
+                        os.aguardandoParceiro ? 'aguardandoParceiro' :
+                          os.aguardandoCliente ? 'aguardandoCliente' : ''
                   }
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) => atualizarStatus(os, e.target.value as keyof OrdemDeServico)}
@@ -253,39 +307,34 @@ const Dashboard = () => {
                   <option value="">🔁 Mudar status...</option>
                   <option value="finalizado">✅ Finalizado</option>
                   <option value="trabalhando">🕐 Trabalhando</option>
-                  <option value="aguardandoCliente">📩 Aguardando Cliente</option>
-                  <option value="aguardandoParceiro">👥 Aguardando Parceiro</option>
+                  <option value="aguardandoCliente">📩 Cliente</option>
+                  <option value="aguardandoParceiro">👥 Parceiro</option>
                 </Form.Select>
 
                 <Button
                   size="sm"
                   variant={os.urgente ? 'light' : 'outline-danger'}
-                  className="mt-2"
-                  onClick={(e) => {
+                  disabled={atualizandoUrgencia === os.numero}
+                  className="mt-3" // aqui aumentamos de mt-2 para mt-3
+                  onClick={e => {
                     e.stopPropagation()
-                    const novoValor = os.urgente ? 0 : 1
-                    api.put(`/os/${os.numero}`, {
-                      ...os,
-                      urgente: novoValor
-                    }).then(() => {
-                      setOrdens(ordens.map(o =>
-                        o.numero === os.numero ? { ...o, urgente: !!novoValor } : o
-                      ))
-                      if (novoValor === 1) {
-                        alertaAudio.play().catch(() => {})
-                      }                      
-                    }).catch(() => {
-                      alert('❌ Erro ao atualizar urgência')
-                    })
+                    atualizarUrgencia(os.numero)
                   }}
                 >
-                  {os.urgente ? '❌ Urgente' : '🚨 Marcar como Urgente'}
+                  {atualizandoUrgencia === os.numero
+                    ? '⏳ Atualizando...'
+                    : os.urgente
+                      ? '❌ Remover urgência'
+                      : '🚨 Marcar como Urgente'
+                  }
                 </Button>
+
               </Card.Body>
             </Card>
           </Col>
         ))}
       </Row>
+      <ToastContainer position="bottom-center" autoClose={3000} hideProgressBar />
     </div>
   )
 }
