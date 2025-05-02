@@ -21,6 +21,8 @@ export interface OrdemServico {
   aguardandoParceiro: boolean
   finalizado: boolean
   trabalhando: boolean
+  naFila?: boolean
+  urgente?: boolean
   programadaPara?: string
 }
 
@@ -47,6 +49,8 @@ export const createOS = async (os: OrdemServico) => {
     aguardandoParceiro,
     finalizado,
     trabalhando,
+    naFila,
+    urgente,
     programadaPara
   } = os
 
@@ -59,9 +63,9 @@ export const createOS = async (os: OrdemServico) => {
   await db.query(
     `INSERT INTO ordens_servico 
      (numero, cliente, parceiro, projeto, tarefa, observacoes, sessoes, 
-      aguardandoCliente, aguardandoParceiro, finalizado, trabalhando, 
+      aguardandoCliente, aguardandoParceiro, finalizado, trabalhando, naFila, urgente,
       parceiro_id, cliente_id, projeto_id, programadaPara)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       numero,
       cliente,
@@ -74,6 +78,8 @@ export const createOS = async (os: OrdemServico) => {
       aguardandoParceiro,
       finalizado,
       trabalhando,
+      naFila || false,
+      urgente || false,
       parceiroId,
       clienteId,
       projetoId,
@@ -93,6 +99,8 @@ export const createOS = async (os: OrdemServico) => {
     aguardandoParceiro,
     finalizado,
     trabalhando,
+    naFila,
+    urgente,
     programadaPara
   }
 }
@@ -109,6 +117,7 @@ export const updateOS = async (numero: string, os: any) => {
     aguardandoParceiro,
     finalizado,
     trabalhando,
+    naFila,
     aberto_em,
     finalizado_em,
     urgente,
@@ -120,7 +129,7 @@ export const updateOS = async (numero: string, os: any) => {
   const [result] = await db.query(
     `UPDATE ordens_servico SET 
       cliente = ?, parceiro = ?, projeto = ?, tarefa = ?, observacoes = ?, sessoes = ?, 
-      aguardandoCliente = ?, aguardandoParceiro = ?, finalizado = ?, trabalhando = ?,
+      aguardandoCliente = ?, aguardandoParceiro = ?, finalizado = ?, trabalhando = ?, naFila = ?,
       aberto_em = ?, finalizado_em = ?, urgente = ?, programadaPara = ?
      WHERE numero = ?`,
     [
@@ -134,9 +143,10 @@ export const updateOS = async (numero: string, os: any) => {
       aguardandoParceiro,
       finalizado,
       trabalhando,
+      naFila,
       aberto_em || null,
       finalizado_em || null,
-      urgente || 0,
+      urgente || false,
       programadaPara || null,
       numero
     ]
