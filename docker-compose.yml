@@ -1,6 +1,19 @@
 version: '3.9'
 
 services:
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=troque_por_sua_senha_root
+      - MYSQL_DATABASE=freelaos
+      - MYSQL_USER=freelaos
+      - MYSQL_PASSWORD=troque_por_sua_senha
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - freelaos-net
+
   backend:
     build:
       context: .
@@ -10,6 +23,12 @@ services:
       - "3001:3001"
     environment:
       - NODE_ENV=production
+      - DB_HOST=db
+      - DB_USER=freelaos
+      - DB_PASSWORD=troque_por_sua_senha
+      - DB_NAME=freelaos
+    depends_on:
+      - db
     networks:
       - freelaos-net
 
@@ -22,6 +41,9 @@ services:
       - "80:80"
     networks:
       - freelaos-net
+
+volumes:
+  db_data:
 
 networks:
   freelaos-net:

@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Form, Button, Row, Col } from 'react-bootstrap'
-import Select from 'react-select'
+import CreatableSelect from 'react-select/creatable'
+import { toast, ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import api from '../services/api'
 
 interface SessaoTrabalho {
   data: string
   inicio: string
   fim: string
+}
+
+interface Option {
+  value: string
+  label: string
 }
 
 const NovaOS = () => {
@@ -23,6 +30,7 @@ const NovaOS = () => {
     aguardandoParceiro: false,
     finalizado: false,
     trabalhando: false,
+    naFila: true,            // status padrão 'Na fila'
   })
 
   const [sessoes, setSessoes] = useState<SessaoTrabalho[]>([])
@@ -43,6 +51,7 @@ const NovaOS = () => {
         setProjetos(resProjetos.data.map((p: any) => p.nome))
       } catch (err) {
         console.error('Erro ao buscar entidades:', err)
+        toast.error('Erro ao carregar opções de entidades')
       }
     }
     fetchEntidades()
@@ -50,25 +59,26 @@ const NovaOS = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type, checked } = e.target
-    setFormData({
-      ...formData,
+    setFormData(prev => ({
+      ...prev,
       [name]: type === 'checkbox' ? checked : value,
-    })
+    }))
   }
 
   const handleSessaoChange = (index: number, field: keyof SessaoTrabalho, value: string) => {
-    const novas = [...sessoes]
-    novas[index][field] = value
-    setSessoes(novas)
+    setSessoes(prev => {
+      const copy = [...prev]
+      copy[index][field] = value
+      return copy
+    })
   }
 
   const adicionarSessao = () => {
-    setSessoes([...sessoes, { data: '', inicio: '', fim: '' }])
+    setSessoes(prev => [...prev, { data: '', inicio: '', fim: '' }])
   }
 
   const removerSessao = (index: number) => {
-    const novas = sessoes.filter((_, i) => i !== index)
-    setSessoes(novas)
+    setSessoes(prev => prev.filter((_, i) => i !== index))
   }
 
   const gerarNumeroOS = () => {
@@ -80,44 +90,62 @@ const NovaOS = () => {
     e.preventDefault()
     const novaOS = {
       numero: gerarNumeroOS(),
-      ...formData,
-      sessoes: Array.isArray(sessoes) ? sessoes : []
+      cliente: formData.cliente,
+      parceiro: formData.parceiro,
+      projeto: formData.projeto,
+      tarefa: formData.tarefa,
+      observacoes: formData.observacoes,
+      aguardandoCliente: formData.aguardandoCliente,
+      aguardandoParceiro: formData.aguardandoParceiro,
+      finalizado: formData.finalizado,
+      trabalhando: formData.trabalhando,
+      naFila: formData.naFila,
+      sessoes,
     }
 
     try {
       await api.post('/os', novaOS)
-      alert('✅ OS criada com sucesso!')
+      toast.success('✅ OS criada com sucesso!')
       navigate('/')
     } catch (err) {
-      alert('❌ Erro ao criar OS')
-      console.error(err)
+      console.error('Erro ao criar OS:', err)
+      toast.error('❌ Erro ao criar OS')
     }
   }
 
-  const clienteOptions = clientes.map(nome => ({ value: nome, label: nome }))
-  const parceiroOptions = parceiros.map(nome => ({ value: nome, label: nome }))
-  const projetoOptions = projetos.map(nome => ({ value: nome, label: nome }))
+  const clienteOptions: Option[] = clientes.map(nome => ({ value: nome, label: nome }))
+  const parceiroOptions: Option[] = parceiros.map(nome => ({ value: nome, label: nome }))
+  const projetoOptions: Option[] = projetos.map(nome => ({ value: nome, label: nome }))
 
   return (
     <div className="container py-4">
+      <ToastContainer position="top-center" />
       <h2 className="mb-4">🆕 Nova Ordem de Serviço</h2>
       <Form onSubmit={handleSubmit}>
         <Row className="mb-3">
-          <Col>
+          <Col xs={12} md={6}>
             <Form.Label>Cliente</Form.Label>
-            <Select
+            <CreatableSelect
               options={clienteOptions}
-              onChange={(opcao) => setFormData({ ...formData, cliente: opcao?.value || '' })}
+              onChange={opt => setFormData(prev => ({ ...prev, cliente: opt?.value || '' }))}
+              onCreateOption={input => {
+                setClientes(prev => [...prev, input])
+                setFormData(prev => ({ ...prev, cliente: input }))
+              }}
               value={clienteOptions.find(opt => opt.value === formData.cliente) || null}
               placeholder="Digite ou selecione..."
               isClearable
             />
           </Col>
-          <Col>
+          <Col xs={12} md={6}>
             <Form.Label>Parceiro</Form.Label>
-            <Select
+            <CreatableSelect
               options={parceiroOptions}
-              onChange={(opcao) => setFormData({ ...formData, parceiro: opcao?.value || '' })}
+              onChange={opt => setFormData(prev => ({ ...prev, parceiro: opt?.value || '' }))}
+              onCreateOption={input => {
+                setParceiros(prev => [...prev, input])
+                setFormData(prev => ({ ...prev, parceiro: input }))
+              }}
               value={parceiroOptions.find(opt => opt.value === formData.parceiro) || null}
               placeholder="Digite ou selecione..."
               isClearable
@@ -126,17 +154,21 @@ const NovaOS = () => {
         </Row>
 
         <Row className="mb-3">
-          <Col>
+          <Col xs={12} md={6}>
             <Form.Label>Projeto</Form.Label>
-            <Select
+            <CreatableSelect
               options={projetoOptions}
-              onChange={(opcao) => setFormData({ ...formData, projeto: opcao?.value || '' })}
+              onChange={opt => setFormData(prev => ({ ...prev, projeto: opt?.value || '' }))}
+              onCreateOption={input => {
+                setProjetos(prev => [...prev, input])
+                setFormData(prev => ({ ...prev, projeto: input }))
+              }}
               value={projetoOptions.find(opt => opt.value === formData.projeto) || null}
               placeholder="Digite ou selecione..."
               isClearable
             />
           </Col>
-          <Col>
+          <Col xs={12} md={6}>
             <Form.Label>Tarefa</Form.Label>
             <Form.Control
               type="text"
@@ -160,17 +192,50 @@ const NovaOS = () => {
         </Form.Group>
 
         <Row className="mb-4">
-          <Col xs={12} md={3}>
-            <Form.Check type="checkbox" label="Aguardando cliente" name="aguardandoCliente" checked={formData.aguardandoCliente} onChange={handleChange} />
+          <Col xs={6} md={2}>
+            <Form.Check
+              type="checkbox"
+              label="Aguardando cliente"
+              name="aguardandoCliente"
+              checked={formData.aguardandoCliente}
+              onChange={handleChange}
+            />
           </Col>
-          <Col xs={12} md={3}>
-            <Form.Check type="checkbox" label="Aguardando parceiro" name="aguardandoParceiro" checked={formData.aguardandoParceiro} onChange={handleChange} />
+          <Col xs={6} md={2}>
+            <Form.Check
+              type="checkbox"
+              label="Aguardando parceiro"
+              name="aguardandoParceiro"
+              checked={formData.aguardandoParceiro}
+              onChange={handleChange}
+            />
           </Col>
-          <Col xs={12} md={3}>
-            <Form.Check type="checkbox" label="Finalizado" name="finalizado" checked={formData.finalizado} onChange={handleChange} />
+          <Col xs={6} md={2}>
+            <Form.Check
+              type="checkbox"
+              label="Finalizado"
+              name="finalizado"
+              checked={formData.finalizado}
+              onChange={handleChange}
+            />
           </Col>
-          <Col xs={12} md={3}>
-            <Form.Check type="checkbox" label="Trabalhando" name="trabalhando" checked={formData.trabalhando} onChange={handleChange} />
+          <Col xs={6} md={2}>
+            <Form.Check
+              type="checkbox"
+              label="Trabalhando"
+              name="trabalhando"
+              checked={formData.trabalhando}
+              onChange={handleChange}
+            />
+          </Col>
+          <Col xs={6} md={2}>
+            <Form.Check
+              type="checkbox"
+              label="Na fila"
+              name="naFila"
+              checked={formData.naFila}
+              onChange={handleChange}
+            />
           </Col>
         </Row>
 
@@ -182,29 +247,30 @@ const NovaOS = () => {
                 <Form.Control
                   type="date"
                   value={sessao.data}
-                  onChange={(e) => handleSessaoChange(index, 'data', e.target.value)}
+                  onChange={e => handleSessaoChange(index, 'data', e.target.value)}
                 />
               </Col>
               <Col md={3}>
                 <Form.Control
                   type="time"
                   value={sessao.inicio}
-                  onChange={(e) => handleSessaoChange(index, 'inicio', e.target.value)}
+                  onChange={e => handleSessaoChange(index, 'inicio', e.target.value)}
                 />
               </Col>
               <Col md={3}>
                 <Form.Control
                   type="time"
                   value={sessao.fim}
-                  onChange={(e) => handleSessaoChange(index, 'fim', e.target.value)}
+                  onChange={e => handleSessaoChange(index, 'fim', e.target.value)}
                 />
               </Col>
               <Col md={3}>
-                <Button variant="outline-danger" size="sm" onClick={() => removerSessao(index)}>❌</Button>
+                <Button variant="outline-danger" size="sm" onClick={() => removerSessao(index)}>
+                  ❌
+                </Button>
               </Col>
             </Row>
           ))}
-
           <Button variant="outline-primary" size="sm" onClick={adicionarSessao}>
             ➕ Adicionar Sessão
           </Button>

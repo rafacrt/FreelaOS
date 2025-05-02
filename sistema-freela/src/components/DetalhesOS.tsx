@@ -1,225 +1,269 @@
-import { useLocation, useNavigate } from 'react-router-dom'
-import { Button, Card, ListGroup, Form, Row, Col, Badge } from 'react-bootstrap'
-import { useEffect, useRef, useState } from 'react'
-import html2pdf from 'html2pdf.js'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Form, Button, Row, Col } from 'react-bootstrap'
+import CreatableSelect from 'react-select/creatable'
+import { toast, ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import api from '../services/api'
 
-const DetalhesOS = () => {
-  const pdfRef = useRef<HTMLDivElement>(null)
-  const { state } = useLocation()
-  const navigate = useNavigate()
-  const os = state?.os
+interface SessaoTrabalho {
+  data: string
+  inicio: string
+  fim: string
+}
 
-  const [abertoEm, setAbertoEm] = useState('')
-  const [finalizadoEm, setFinalizadoEm] = useState('')
-  const [programadaPara, setProgramadaPara] = useState('')
-  const [urgente, setUrgente] = useState(false)
-  const [salvando, setSalvando] = useState(false)
+interface Option {
+  value: string
+  label: string
+}
+
+const NovaOS = () => {
+  const navigate = useNavigate()
+
+  const [formData, setFormData] = useState({
+    cliente: '',
+    parceiro: '',
+    projeto: '',
+    tarefa: '',
+    observacoes: '',
+    aguardandoCliente: false,
+    aguardandoParceiro: false,
+    finalizado: false,
+    trabalhando: false,
+    naFila: true,            // status padrão 'Na fila'
+  })
+
+  const [sessoes, setSessoes] = useState<SessaoTrabalho[]>([])
+  const [clientes, setClientes] = useState<string[]>([])
+  const [parceiros, setParceiros] = useState<string[]>([])
+  const [projetos, setProjetos] = useState<string[]>([])
 
   useEffect(() => {
-    if (!os) return navigate('/')
-
-    if (os.aberto_em) {
-      setAbertoEm(os.aberto_em.slice(0, 16))
-    } else {
-      const agora = new Date().toISOString().slice(0, 16)
-      setAbertoEm(agora)
-      api.put(`/os/${os.numero}`, { ...os, aberto_em: new Date() })
+    const fetchEntidades = async () => {
+      try {
+        const [resClientes, resParceiros, resProjetos] = await Promise.all([
+          api.get('/entidades/clientes'),
+          api.get('/entidades/parceiros/todos'),
+          api.get('/entidades/projetos/todos')
+        ])
+        setClientes(resClientes.data.map((c: any) => c.nome))
+        setParceiros(resParceiros.data.map((p: any) => p.nome))
+        setProjetos(resProjetos.data.map((p: any) => p.nome))
+      } catch (err) {
+        console.error('Erro ao buscar entidades:', err)
+        toast.error('Erro ao carregar opções de entidades')
+      }
     }
+    fetchEntidades()
+  }, [])
 
-    if (os.finalizado_em) {
-      setFinalizadoEm(os.finalizado_em.slice(0, 16))
-    }
-
-    if (os.programadaPara) {
-      setProgramadaPara(os.programadaPara.slice(0, 16))
-    }
-
-    if (os.urgente !== undefined) {
-      setUrgente(!!os.urgente)
-    }
-  }, [os, navigate])
-
-  if (!os) return null
-
-  const gerarLinkWhatsapp = () => {
-    const msg = `Ordem de Serviço ${os.numero}%0AProjeto: ${os.projeto}%0ACliente: ${os.cliente}%0ATarefa: ${os.tarefa}`
-    return `https://wa.me/?text=${msg}`
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, type, checked } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }))
   }
 
-  const imprimirPagina = () => window.print()
-
-  const gerarPDF = () => {
-    if (pdfRef.current) {
-      html2pdf().from(pdfRef.current).set({
-        margin: 10,
-        filename: `${os.numero}.pdf`,
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      }).save()
-    }
+  const handleSessaoChange = (index: number, field: keyof SessaoTrabalho, value: string) => {
+    setSessoes(prev => {
+      const copy = [...prev]
+      copy[index][field] = value
+      return copy
+    })
   }
 
-  const excluirOS = async () => {
-    if (!window.confirm(`Tem certeza que deseja excluir a OS ${os.numero}?`)) return
+  const adicionarSessao = () => {
+    setSessoes(prev => [...prev, { data: '', inicio: '', fim: '' }])
+  }
+
+  const removerSessao = (index: number) => {
+    setSessoes(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const gerarNumeroOS = () => {
+    const numero = Math.floor(1000000 + Math.random() * 9000000)
+    return `OS-${numero}`
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const novaOS = {
+      numero: gerarNumeroOS(),
+      ...formData,
+      sessoes,
+    }
 
     try {
-      await api.delete(`/os/${os.numero}`)
-      alert('🗑️ OS excluída com sucesso!')
+      await api.post('/os', novaOS)
+      toast.success('✅ OS criada com sucesso!')
       navigate('/')
     } catch (err) {
-      alert('❌ Erro ao excluir OS')
-      console.error(err)
+      console.error('Erro ao criar OS:', err)
+      toast.error('❌ Erro ao criar OS')
     }
   }
 
-  const salvarDatas = async () => {
-    setSalvando(true)
-    try {
-      await api.put(`/os/${os.numero}`, {
-        ...os,
-        aberto_em: abertoEm ? new Date(abertoEm) : null,
-        finalizado_em: finalizadoEm ? new Date(finalizadoEm) : null,
-        programadaPara: programadaPara ? new Date(programadaPara) : null,
-        urgente: urgente ? 1 : 0
-      })
-      alert('💾 Alterações salvas com sucesso!')
-    } catch (err) {
-      alert('❌ Erro ao salvar alterações')
-      console.error(err)
-    } finally {
-      setSalvando(false)
-    }
-  }
+  const clienteOptions: Option[] = clientes.map(nome => ({ value: nome, label: nome }))
+  const parceiroOptions: Option[] = parceiros.map(nome => ({ value: nome, label: nome }))
+  const projetoOptions: Option[] = projetos.map(nome => ({ value: nome, label: nome }))
 
   return (
+    <div className="container py-4">
+      <ToastContainer position="top-center" />
+      <h2 className="mb-4">🆕 Nova Ordem de Serviço</h2>
+      <Form onSubmit={handleSubmit}>
+        <Row className="mb-3">
+          <Col>
+            <Form.Label>Cliente</Form.Label>
+            <CreatableSelect
+              options={clienteOptions}
+              onChange={opt => setFormData(prev => ({ ...prev, cliente: opt?.value || '' }))}
+              onCreateOption={input => {
+                setClientes(prev => [...prev, input])
+                setFormData(prev => ({ ...prev, cliente: input }))
+              }}
+              value={clienteOptions.find(opt => opt.value === formData.cliente) || null}
+              placeholder="Digite ou selecione..."
+              isClearable
+            />
+          </Col>
+          <Col>
+            <Form.Label>Parceiro</Form.Label>
+            <CreatableSelect
+              options={parceiroOptions}
+              onChange={opt => setFormData(prev => ({ ...prev, parceiro: opt?.value || '' }))}
+              onCreateOption={input => {
+                setParceiros(prev => [...prev, input])
+                setFormData(prev => ({ ...prev, parceiro: input }))
+              }}
+              value={parceiroOptions.find(opt => opt.value === formData.parceiro) || null}
+              placeholder="Digite ou selecione..."
+              isClearable
+            />
+          </Col>
+        </Row>
 
-    <div className="container py-4" ref={pdfRef}>
-      <h2 className="mb-4">
-        {urgente && <span className="me-2">🔥</span>} Detalhes da OS <strong>#{os.numero}</strong>
-      </h2>
-      
+        <Row className="mb-3">
+          <Col>
+            <Form.Label>Projeto</Form.Label>
+            <CreatableSelect
+              options={projetoOptions}
+              onChange={opt => setFormData(prev => ({ ...prev, projeto: opt?.value || '' }))}
+              onCreateOption={input => {
+                setProjetos(prev => [...prev, input])
+                setFormData(prev => ({ ...prev, projeto: input }))
+              }}
+              value={projetoOptions.find(opt => opt.value === formData.projeto) || null}
+              placeholder="Digite ou selecione..."
+              isClearable
+            />
+          </Col>
+          <Col>
+            <Form.Label>Tarefa</Form.Label>
+            <Form.Control
+              type="text"
+              name="tarefa"
+              value={formData.tarefa}
+              onChange={handleChange}
+              required
+            />
+          </Col>
+        </Row>
 
+        <Form.Group className="mb-3">
+          <Form.Label>Observações</Form.Label>
+          <Form.Control
+            as="textarea"
+            name="observacoes"
+            value={formData.observacoes}
+            onChange={handleChange}
+            rows={3}
+          />
+        </Form.Group>
 
-      <Card className={`mb-4 shadow-sm border-0 ${urgente ? 'urgente' : ''}`}>
-        <Card.Body>
-          <Row>
-            {/* Coluna esquerda */}
-            <Col md={6}>
-              <p><strong>📁 Projeto:</strong> {os.projeto}</p>
-              <p><strong>👤 Cliente:</strong> {os.cliente}</p>
-              <p><strong>🤝 Parceiro:</strong> {os.parceiro}</p>
-              <p><strong>🧩 Tarefa:</strong> {os.tarefa}</p>
-              <p><strong>📝 Observações:</strong> {os.observacoes || 'Nenhuma'}</p>
-              <p><strong>🏷️ Status:</strong> &nbsp;
-                {os.finalizado ? <Badge bg="success">Finalizado</Badge> :
-                  os.trabalhando ? <Badge bg="warning" text="dark">Trabalhando</Badge> :
-                    os.aguardandoParceiro ? <Badge bg="primary">Aguardando Parceiro</Badge> :
-                      os.aguardandoCliente ? <Badge bg="info">Aguardando Cliente</Badge> :
-                        <Badge bg="secondary">Sem status</Badge>}
-              </p>
-            </Col>
+        <Row className="mb-4">
+          <Col xs={12} md={3}>
+            <Form.Check
+              type="checkbox"
+              label="Aguardando cliente"
+              name="aguardandoCliente"
+              checked={formData.aguardandoCliente}
+              onChange={handleChange}
+            />
+          </Col>
+          <Col xs={12} md={3}>
+            <Form.Check
+              type="checkbox"
+              label="Aguardando parceiro"
+              name="aguardandoParceiro"
+              checked={formData.aguardandoParceiro}
+              onChange={handleChange}
+            />
+          </Col>
+          <Col xs={12} md={3}>
+            <Form.Check
+              type="checkbox"
+              label="Finalizado"
+              name="finalizado"
+              checked={formData.finalizado}
+              onChange={handleChange}
+            />
+          </Col>
+          <Col xs={12} md={3}>
+            <Form.Check
+              type="checkbox"
+              label="Trabalhando"
+              name="trabalhando"
+              checked={formData.trabalhando}
+              onChange={handleChange}
+            />
+          </Col>
+        </Row>
 
-            {/* Coluna direita */}
-            <Col md={6}>
-              <Form.Group className="mb-3">
-                <Form.Label>📅 Abertura</Form.Label>
+        <div className="mb-4">
+          <h5 className="mb-3">⏱️ Tempo Trabalhado (opcional)</h5>
+          {sessoes.map((sessao, index) => (
+            <Row key={index} className="mb-2 align-items-center">
+              <Col md={3}>
                 <Form.Control
-                  type="datetime-local"
-                  value={abertoEm}
-                  onChange={(e) => setAbertoEm(e.target.value)}
+                  type="date"
+                  value={sessao.data}
+                  onChange={e => handleSessaoChange(index, 'data', e.target.value)}
                 />
-              </Form.Group>
-
-              <Form.Group className="mb-3">
-                <Form.Label>✅ Finalização</Form.Label>
+              </Col>
+              <Col md={3}>
                 <Form.Control
-                  type="datetime-local"
-                  value={finalizadoEm}
-                  onChange={(e) => setFinalizadoEm(e.target.value)}
+                  type="time"
+                  value={sessao.inicio}
+                  onChange={e => handleSessaoChange(index, 'inicio', e.target.value)}
                 />
-              </Form.Group>
-
-              <Form.Group className="mb-3">
-                <Form.Label>📌 Programada para</Form.Label>
+              </Col>
+              <Col md={3}>
                 <Form.Control
-                  type="datetime-local"
-                  value={programadaPara}
-                  onChange={(e) => setProgramadaPara(e.target.value)}
+                  type="time"
+                  value={sessao.fim}
+                  onChange={e => handleSessaoChange(index, 'fim', e.target.value)}
                 />
-              </Form.Group>
+              </Col>
+              <Col md={3}>
+                <Button variant="outline-danger" size="sm" onClick={() => removerSessao(index)}>
+                  ❌
+                </Button>
+              </Col>
+            </Row>
+          ))}
+          <Button variant="outline-primary" size="sm" onClick={adicionarSessao}>
+            ➕ Adicionar Sessão
+          </Button>
+        </div>
 
-              <Button variant="primary" onClick={salvarDatas} disabled={salvando} className="w-100">
-                {salvando ? 'Salvando...' : '💾 Salvar Alterações'}
-              </Button>
-              
-
-            </Col>
-          </Row>
-        </Card.Body>
-      </Card>
-
-      {/* Sessões */}
-      <Card className="mb-4 shadow-sm border-0">
-        <Card.Body>
-          <h5 className="mb-3">⏱️ Sessões de Tempo Trabalhado</h5>
-          <ListGroup>
-            {os.sessoes.length === 0 && (
-              <ListGroup.Item>Nenhuma sessão registrada.</ListGroup.Item>
-            )}
-            {os.sessoes.map((s: any, i: number) => (
-              <ListGroup.Item key={i}>
-                📅 {s.data} | 🕒 {s.inicio} até {s.fim}
-              </ListGroup.Item>
-            ))}
-          </ListGroup>
-        </Card.Body>
-      </Card>
-
-      {/* Ações */}
-      <div className="d-flex flex-wrap gap-2">
-        <Button variant="outline-primary" onClick={imprimirPagina}>🖨️ Imprimir</Button>
-        <Button variant="outline-success" as="a" target="_blank" href={gerarLinkWhatsapp()}>🟢 WhatsApp</Button>
-        <Button variant="outline-secondary" onClick={gerarPDF}>📥 Gerar PDF</Button>
-        <Button variant="outline-warning" onClick={() => navigate(`/os/editar/${os.numero}`, { state: { os } })}>✏️ Editar OS</Button>
-        <Button variant="outline-danger" onClick={excluirOS}>🗑️ Excluir OS</Button>
-        
-        <Button
-          variant={urgente ? 'danger' : 'outline-danger'}
-          onClick={async () => {
-            try {
-              await api.put(`/os/${os.numero}`, {
-                ...os,
-                urgente: urgente ? 0 : 1
-              })
-              setUrgente(!urgente)
-            } catch (err) {
-              alert('❌ Erro ao atualizar urgência')
-              console.error(err)
-            }
-          }}
-        >
-          {urgente ? '❌ Remover Urgência' : '🚨 Marcar como Urgente'}
+        <Button type="submit" variant="primary">
+          Salvar OS
         </Button>
-        <Button
-              size="sm"
-              variant="secondary"
-              onClick={(e) => {
-              e.stopPropagation()
-              if (window.confirm('Deseja duplicar esta OS?')) {
-              api.post(`/os/duplicar/${os.numero}`).then(() => {
-              toast.success('✅ OS duplicada com sucesso!')
-              buscarOS() // recarrega lista
-              }).catch(() => toast.error('❌ Erro ao duplicar'))
-            }
-          }}
-        >
-  📄 Duplicar
-</Button>
-<Button variant="light" onClick={() => navigate('/')}>⬅️ Voltar</Button>
-      </div>
+      </Form>
     </div>
   )
 }
 
-export default DetalhesOS
+export default NovaOS
