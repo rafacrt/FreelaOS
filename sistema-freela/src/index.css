@@ -14,13 +14,6 @@ body {
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.08);
 }
 
-/* === Urgente === */
-.card.urgente {
-  background-color: #ffdddd !important;
-  color: #750000 !important;
-  border-left: 6px solid #ff4444;
-}
-
 .card.urgente .form-label,
 .card.urgente .list-group-item {
   color: #750000 !important;
@@ -80,13 +73,43 @@ body.dark-mode .card.urgente .btn-primary {
   opacity: 0.95;
 }
 
+/* Destaque para cards urgentes */
 .card-urgente {
   animation: pulseUrgente 1.5s infinite;
-  box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+  border: 2px solid #b30000 !important;
 }
 
+/* Animação leve para urgência */
 @keyframes pulseUrgente {
-  0% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
-  50% { box-shadow: 0 0 20px rgba(255, 0, 0, 1); }
-  100% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(255, 0, 0, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 0, 0, 0);
+  }
+}
+
+/* Ajustes de responsividade */
+@media (max-width: 768px) {
+  .card-body {
+    padding: 1rem;
+  }
+  .card-title {
+    font-size: 1.1rem;
+  }
+  .card-subtitle {
+    font-size: 0.9rem;
+  }
+}
+
+.draggable-item {
+  user-select: none;
+  padding: 16px;
+  margin: 0 0 8px 0;
+  background: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
 }

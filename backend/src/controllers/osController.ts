@@ -32,7 +32,7 @@ export const buscarOS = async (req: Request, res: Response) => {
 export const criarOS = async (req: Request, res: Response) => {
   try {
     const novaOS = await createOS(req.body)
-    res.status(201).json({ mensagem: 'OS criada com sucesso', os: novaOS })
+    res.status(201).json(novaOS)
   } catch (error) {
     console.error('❌ Erro ao criar OS:', error)
     res.status(500).json({
@@ -73,17 +73,25 @@ export const duplicateOS = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'OS não encontrada' })
     }
 
-    // 2) gera um novo número (timestamp ou UUID)
-    const novoNumero = Date.now().toString()
+    // 2) gera o próximo número sequencial
+    const [maxRows]: any = await db.query("SELECT numero FROM ordens_servico ORDER BY id DESC LIMIT 1")
+    let proximoNumero = 1
 
-    // 3) prepara os dados para inserção:
-    //    - remove a PK
-    //    - atualiza o campo número
-    //    - atualiza o timestamp de criação (created_at)
+    if (maxRows.length > 0) {
+      const ultimoNumero = maxRows[0].numero
+      const match = ultimoNumero?.match(/OS-(\d+)/)
+      if (match) {
+        proximoNumero = parseInt(match[1], 10) + 1
+      }
+    }
+
+    const novoNumero = `OS-${proximoNumero.toString().padStart(6, '0')}`
+
+    // 3) prepara os dados
     const clone: any = { ...original }
-    delete clone.id                // se existir id autoincrement
+    delete clone.id
     clone.numero = novoNumero
-    clone.created_at = new Date()  // usa coluna existente
+    clone.created_at = new Date()
 
     // 4) insere a nova OS
     await db.query('INSERT INTO ordens_servico SET ?', [clone])
@@ -100,3 +108,4 @@ export const duplicateOS = async (req: Request, res: Response) => {
     return res.status(500).json({ error: 'Erro ao duplicar OS' })
   }
 }
+

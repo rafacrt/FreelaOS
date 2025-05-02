@@ -26,6 +26,11 @@ export interface OrdemServico {
   programadaPara?: string
 }
 
+const parseDate = (data: any) => {
+  const d = new Date(data)
+  return isNaN(d.getTime()) ? null : d
+}
+
 export const getAllOS = async () => {
   const [rows] = await db.query('SELECT * FROM ordens_servico')
   return rows
@@ -36,9 +41,8 @@ export const getOSByNumero = async (numero: string) => {
   return rows[0]
 }
 
-export const createOS = async (os: OrdemServico) => {
+export const createOS = async (os: Omit<OrdemServico, 'numero'>) => {
   const {
-    numero,
     cliente,
     parceiro,
     projeto,
@@ -54,6 +58,18 @@ export const createOS = async (os: OrdemServico) => {
     programadaPara
   } = os
 
+  const [rows]: any = await db.query("SELECT numero FROM ordens_servico ORDER BY id DESC LIMIT 1")
+  let proximoNumero = 1
+
+  if (rows.length > 0) {
+    const ultimoNumero = rows[0].numero
+    const match = ultimoNumero?.match(/OS-(\d+)/)
+    if (match) {
+      proximoNumero = parseInt(match[1], 10) + 1
+    }
+  }
+
+  const numero = `OS-${proximoNumero.toString().padStart(6, '0')}`
   const sessoesJson = JSON.stringify(sessoes ?? [])
 
   const parceiroId = await verificarOuCriarParceiro(parceiro)
@@ -78,12 +94,12 @@ export const createOS = async (os: OrdemServico) => {
       aguardandoParceiro,
       finalizado,
       trabalhando,
-      naFila || false,
-      urgente || false,
+      naFila ?? false,
+      urgente ?? false,
       parceiroId,
       clienteId,
       projetoId,
-      programadaPara || null
+      parseDate(programadaPara)
     ]
   )
 
@@ -143,11 +159,11 @@ export const updateOS = async (numero: string, os: any) => {
       aguardandoParceiro,
       finalizado,
       trabalhando,
-      naFila,
-      aberto_em || null,
-      finalizado_em || null,
-      urgente || false,
-      programadaPara || null,
+      naFila ?? false,
+      parseDate(aberto_em),
+      parseDate(finalizado_em),
+      urgente ?? false,
+      parseDate(programadaPara),
       numero
     ]
   )

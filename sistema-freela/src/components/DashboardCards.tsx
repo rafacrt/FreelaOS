@@ -38,12 +38,7 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({
         <div {...provided.droppableProps} ref={provided.innerRef}>
           <Row xs={1} md={2} lg={3} className="g-4">
             {ordensFiltradas.map((os, index) => (
-              <Draggable
-                key={os.numero}
-                draggableId={os.numero}
-                index={index}
-                isDragDisabled={!os.naFila}
-              >
+              <Draggable key={os.numero} draggableId={os.numero} index={index}>
                 {(draggableProvided) => (
                   <Col
                     ref={draggableProvided.innerRef}
@@ -71,7 +66,7 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({
                       }}
                       onClick={(e) => {
                         const tag = (e.target as HTMLElement).tagName.toLowerCase()
-                        if (tag !== 'button' && tag !== 'select' && tag !== 'option') {
+                        if (!['button', 'select', 'option'].includes(tag)) {
                           abrirDetalhesOS(os)
                         }
                       }}
@@ -98,18 +93,30 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({
                         }}>
                           {os.cliente} - {os.tarefa}
                         </Card.Subtitle>
+
                         <Card.Text style={{ color: os.urgente ? '#fff' : undefined }}>
                           <strong>Parceiro:</strong> {os.parceiro} <br />
                           <strong>Obs:</strong> {os.observacoes || 'Nenhuma'}
                         </Card.Text>
+
                         {os.aberto_em && (
                           <div style={{
                             fontSize: '0.9em',
                             color: os.urgente ? '#fff' : 'var(--bs-secondary-color)',
-                          }} className="mb-2">
+                          }} className="mb-1">
                             📅 Aberto em: {new Date(os.aberto_em).toLocaleString('pt-BR')}
                           </div>
                         )}
+
+                        {os.programadaPara && (
+                          <div style={{
+                            fontSize: '0.9em',
+                            color: os.urgente ? '#fff' : 'var(--bs-secondary-color)',
+                          }} className="mb-2">
+                            📌 Programada para: {new Date(os.programadaPara).toLocaleString('pt-BR')}
+                          </div>
+                        )}
+
                         {getStatusBadge(os)}
 
                         <Form.Select
@@ -153,8 +160,7 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({
                             ? '⏳ Atualizando...'
                             : os.urgente
                               ? '❌ Remover urgência'
-                              : '🚨 Marcar como Urgente'
-                          }
+                              : '🚨 Marcar como Urgente'}
                         </Button>
                         <Button
                           size="sm"

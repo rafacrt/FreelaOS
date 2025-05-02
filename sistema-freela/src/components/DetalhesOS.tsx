@@ -77,11 +77,21 @@ const DetalhesOS = () => {
     setSalvando(true)
     try {
       await api.put(`/os/${os.numero}`, {
-        ...os,
-        aberto_em: abertoEm ? new Date(abertoEm) : null,
-        finalizado_em: finalizadoEm ? new Date(finalizadoEm) : null,
+        cliente: os.cliente,
+        parceiro: os.parceiro,
+        projeto: os.projeto,
+        tarefa: os.tarefa,
+        observacoes: os.observacoes,
+        sessoes: os.sessoes,
+        aguardandoCliente: os.aguardandoCliente,
+        aguardandoParceiro: os.aguardandoParceiro,
+        finalizado: os.finalizado,
+        trabalhando: os.trabalhando,
+        naFila: os.naFila,
+        urgente,
         programadaPara: programadaPara ? new Date(programadaPara) : null,
-        urgente: urgente ? 1 : 0
+        aberto_em: abertoEm ? new Date(abertoEm) : null,
+        finalizado_em: finalizadoEm ? new Date(finalizadoEm) : null
       })
       alert('💾 Alterações salvas com sucesso!')
     } catch (err) {

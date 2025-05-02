@@ -3,7 +3,6 @@ import { ToastContainer, toast } from 'react-toastify'
 import { useNavigate } from 'react-router-dom'
 import { DropResult } from 'react-beautiful-dnd'
 import 'react-toastify/dist/ReactToastify.css'
-
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import DashboardControls from './DashboardControls'
@@ -54,16 +53,13 @@ const Dashboard = () => {
 
   const onDragEnd = (result: DropResult) => {
     const { source, destination } = result
-    if (!destination || filtroStatus !== 'naFila') return
+    if (!destination) return
 
-    const fila = ordens.filter(o => o.naFila)
-    const others = ordens.filter(o => !o.naFila)
+    const novaLista = Array.from(ordens)
+    const [moved] = novaLista.splice(source.index, 1)
+    novaLista.splice(destination.index, 0, moved)
 
-    const novaFila = Array.from(fila)
-    const [moved] = novaFila.splice(source.index, 1)
-    novaFila.splice(destination.index, 0, moved)
-
-    setOrdens([...novaFila, ...others])
+    setOrdens(novaLista)
   }
 
   const atualizarStatus = async (os: OrdemDeServico, novoStatus: keyof OrdemDeServico) => {
@@ -148,11 +144,8 @@ const Dashboard = () => {
       os.tarefa.toLowerCase().includes(busca.toLowerCase())
     )
     .sort((a, b) => {
-      // Urgentes sempre no topo
       if (a.urgente && !b.urgente) return -1
       if (!a.urgente && b.urgente) return 1
-
-      // Senão, por ordem de abertura (mais antigo primeiro)
       const aData = a.aberto_em ? new Date(a.aberto_em).getTime() : 0
       const bData = b.aberto_em ? new Date(b.aberto_em).getTime() : 0
       return aData - bData

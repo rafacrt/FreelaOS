@@ -30,7 +30,7 @@ const NovaOS = () => {
     aguardandoParceiro: false,
     finalizado: false,
     trabalhando: false,
-    naFila: true,   // status padrão
+    naFila: true,
   })
 
   const [sessoes, setSessoes] = useState<SessaoTrabalho[]>([])
@@ -80,21 +80,18 @@ const NovaOS = () => {
     setSessoes(prev => prev.filter((_, idx) => idx !== i))
   }
 
-  const gerarNumeroOS = () => `OS-${Math.floor(1000000 + Math.random() * 9000000)}`
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const now = new Date().toISOString()
     const novaOS = {
-      numero: gerarNumeroOS(),
       ...formData,
       aberto_em: now,
       sessoes,
     }
     try {
-      await api.post('/os', novaOS)
-      toast.success('✅ OS criada com sucesso!')
-      navigate('/')
+      const res = await api.post('/os', novaOS)
+      toast.success(`✅ OS ${res.data.numero} criada com sucesso!`)
+      navigate(`/os/${res.data.numero}`, { state: { os: res.data } })
     } catch {
       toast.error('❌ Erro ao criar OS')
     }
