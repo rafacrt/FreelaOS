@@ -6,6 +6,7 @@ import {
   atualizarOS,
   excluirOS
 } from '../controllers/osController'
+import { duplicateOS } from '../controllers/osController'
 
 const router = Router()
 
@@ -15,5 +16,6 @@ router.get('/:numero', buscarOS)
 router.post('/', criarOS)
 router.put('/:numero', atualizarOS)
 router.delete('/:numero', excluirOS)
+router.post('/duplicar/:numero', duplicateOS)
 
 export default router

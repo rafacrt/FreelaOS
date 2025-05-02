@@ -25,3 +25,11 @@ const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
   console.log(`🚀 API FreelaOS rodando na porta ${PORT}`)
 })
+
+process.on('uncaughtException', err => {
+  console.error('Erro não capturado:', err);
+});
+process.on('unhandledRejection', err => {
+  console.error('Promessa não tratada:', err);
+});
+

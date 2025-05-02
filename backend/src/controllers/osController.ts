@@ -1,3 +1,4 @@
+// src/controllers/osController.ts
 import { Request, Response } from 'express'
 import {
   createOS,
@@ -6,6 +7,8 @@ import {
   updateOS,
   deleteOS
 } from '../models/osModel'
+import { db } from '../database'
+import { RowDataPacket } from 'mysql2'
 
 export const listarOS = async (req: Request, res: Response) => {
   try {
@@ -39,7 +42,6 @@ export const criarOS = async (req: Request, res: Response) => {
   }
 }
 
-
 export const atualizarOS = async (req: Request, res: Response) => {
   try {
     await updateOS(req.params.numero, req.body)
@@ -55,5 +57,46 @@ export const excluirOS = async (req: Request, res: Response) => {
     res.status(200).json({ mensagem: 'OS excluída com sucesso' })
   } catch (error) {
     res.status(500).json({ erro: 'Erro ao excluir OS' })
+  }
+}
+
+export const duplicateOS = async (req: Request, res: Response) => {
+  const { numero } = req.params
+  try {
+    // 1) busca a OS original
+    const [rows] = await db.query<RowDataPacket[]>(
+      'SELECT * FROM ordens_servico WHERE numero = ?',
+      [numero]
+    )
+    const original = rows[0]
+    if (!original) {
+      return res.status(404).json({ error: 'OS não encontrada' })
+    }
+
+    // 2) gera um novo número (timestamp ou UUID)
+    const novoNumero = Date.now().toString()
+
+    // 3) prepara os dados para inserção:
+    //    - remove a PK
+    //    - atualiza o campo número
+    //    - atualiza o timestamp de criação (created_at)
+    const clone: any = { ...original }
+    delete clone.id                // se existir id autoincrement
+    clone.numero = novoNumero
+    clone.created_at = new Date()  // usa coluna existente
+
+    // 4) insere a nova OS
+    await db.query('INSERT INTO ordens_servico SET ?', [clone])
+
+    // 5) busca e retorna a OS recém-criada
+    const [newRows] = await db.query<RowDataPacket[]>(
+      'SELECT * FROM ordens_servico WHERE numero = ?',
+      [novoNumero]
+    )
+    const novaOS = newRows[0]
+    return res.status(201).json(novaOS)
+  } catch (err) {
+    console.error('Erro ao duplicar OS:', err)
+    return res.status(500).json({ error: 'Erro ao duplicar OS' })
   }
 }

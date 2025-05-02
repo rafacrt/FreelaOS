@@ -152,6 +152,8 @@ const DetalhesOS = () => {
               <Button variant="primary" onClick={salvarDatas} disabled={salvando} className="w-100">
                 {salvando ? 'Salvando...' : '💾 Salvar Alterações'}
               </Button>
+              
+
             </Col>
           </Row>
         </Card.Body>
@@ -181,7 +183,7 @@ const DetalhesOS = () => {
         <Button variant="outline-secondary" onClick={gerarPDF}>📥 Gerar PDF</Button>
         <Button variant="outline-warning" onClick={() => navigate(`/os/editar/${os.numero}`, { state: { os } })}>✏️ Editar OS</Button>
         <Button variant="outline-danger" onClick={excluirOS}>🗑️ Excluir OS</Button>
-        <Button variant="light" onClick={() => navigate('/')}>⬅️ Voltar</Button>
+        
         <Button
           variant={urgente ? 'danger' : 'outline-danger'}
           onClick={async () => {
@@ -199,6 +201,22 @@ const DetalhesOS = () => {
         >
           {urgente ? '❌ Remover Urgência' : '🚨 Marcar como Urgente'}
         </Button>
+        <Button
+              size="sm"
+              variant="secondary"
+              onClick={(e) => {
+              e.stopPropagation()
+              if (window.confirm('Deseja duplicar esta OS?')) {
+              api.post(`/os/duplicar/${os.numero}`).then(() => {
+              toast.success('✅ OS duplicada com sucesso!')
+              buscarOS() // recarrega lista
+              }).catch(() => toast.error('❌ Erro ao duplicar'))
+            }
+          }}
+        >
+  📄 Duplicar
+</Button>
+<Button variant="light" onClick={() => navigate('/')}>⬅️ Voltar</Button>
       </div>
     </div>
   )

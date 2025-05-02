@@ -1,0 +1,28 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: always
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+    networks:
+      - freelaos-net
+
+  frontend:
+    build:
+      context: .
+      dockerfile: sistema-freela/Dockerfile
+    restart: always
+    ports:
+      - "80:80"
+    networks:
+      - freelaos-net
+
+networks:
+  freelaos-net:
+    driver: bridge

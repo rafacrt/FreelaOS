@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Form, Button, Row, Col } from 'react-bootstrap'
+import Select from 'react-select'
 import api from '../services/api'
 
 interface SessaoTrabalho {
@@ -25,6 +26,27 @@ const NovaOS = () => {
   })
 
   const [sessoes, setSessoes] = useState<SessaoTrabalho[]>([])
+  const [clientes, setClientes] = useState<string[]>([])
+  const [parceiros, setParceiros] = useState<string[]>([])
+  const [projetos, setProjetos] = useState<string[]>([])
+
+  useEffect(() => {
+    const fetchEntidades = async () => {
+      try {
+        const [resClientes, resParceiros, resProjetos] = await Promise.all([
+          api.get('/entidades/clientes'),
+          api.get('/entidades/parceiros/todos'),
+          api.get('/entidades/projetos/todos')
+        ])
+        setClientes(resClientes.data.map((c: any) => c.nome))
+        setParceiros(resParceiros.data.map((p: any) => p.nome))
+        setProjetos(resProjetos.data.map((p: any) => p.nome))
+      } catch (err) {
+        console.error('Erro ao buscar entidades:', err)
+      }
+    }
+    fetchEntidades()
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type, checked } = e.target
@@ -72,6 +94,10 @@ const NovaOS = () => {
     }
   }
 
+  const clienteOptions = clientes.map(nome => ({ value: nome, label: nome }))
+  const parceiroOptions = parceiros.map(nome => ({ value: nome, label: nome }))
+  const projetoOptions = projetos.map(nome => ({ value: nome, label: nome }))
+
   return (
     <div className="container py-4">
       <h2 className="mb-4">🆕 Nova Ordem de Serviço</h2>
@@ -79,22 +105,22 @@ const NovaOS = () => {
         <Row className="mb-3">
           <Col>
             <Form.Label>Cliente</Form.Label>
-            <Form.Control
-              type="text"
-              name="cliente"
-              value={formData.cliente}
-              onChange={handleChange}
-              required
+            <Select
+              options={clienteOptions}
+              onChange={(opcao) => setFormData({ ...formData, cliente: opcao?.value || '' })}
+              value={clienteOptions.find(opt => opt.value === formData.cliente) || null}
+              placeholder="Digite ou selecione..."
+              isClearable
             />
           </Col>
           <Col>
             <Form.Label>Parceiro</Form.Label>
-            <Form.Control
-              type="text"
-              name="parceiro"
-              value={formData.parceiro}
-              onChange={handleChange}
-              required
+            <Select
+              options={parceiroOptions}
+              onChange={(opcao) => setFormData({ ...formData, parceiro: opcao?.value || '' })}
+              value={parceiroOptions.find(opt => opt.value === formData.parceiro) || null}
+              placeholder="Digite ou selecione..."
+              isClearable
             />
           </Col>
         </Row>
@@ -102,12 +128,12 @@ const NovaOS = () => {
         <Row className="mb-3">
           <Col>
             <Form.Label>Projeto</Form.Label>
-            <Form.Control
-              type="text"
-              name="projeto"
-              value={formData.projeto}
-              onChange={handleChange}
-              required
+            <Select
+              options={projetoOptions}
+              onChange={(opcao) => setFormData({ ...formData, projeto: opcao?.value || '' })}
+              value={projetoOptions.find(opt => opt.value === formData.projeto) || null}
+              placeholder="Digite ou selecione..."
+              isClearable
             />
           </Col>
           <Col>
