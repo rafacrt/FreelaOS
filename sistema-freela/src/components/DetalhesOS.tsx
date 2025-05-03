@@ -106,7 +106,7 @@ const DetalhesOS = () => {
 
     <div className="container py-4" ref={pdfRef}>
       <h2 className="mb-4">
-        {urgente && <span className="me-2">🔥</span>} Detalhes da OS <strong>#{os.numero}</strong>
+        {urgente && <span className="me-2">🔥</span>} Detalhes: <strong>#{os.numero}</strong>
       </h2>
       
 

@@ -96,7 +96,6 @@ export const DashboardCards: React.FC<DashboardCardsProps> = ({
 
                         <Card.Text style={{ color: os.urgente ? '#fff' : undefined }}>
                           <strong>Parceiro:</strong> {os.parceiro} <br />
-                          <strong>Obs:</strong> {os.observacoes || 'Nenhuma'}
                         </Card.Text>
 
                         {os.aberto_em && (
